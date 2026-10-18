@@ -303,3 +303,7 @@ st.caption(
     "Puste komórki = brak prognozy. "
     "Wybory zawodników i snake draft dodamy w Etapie 5."
 )
+
+# Render persisted draft controls below the projections browser.
+from nba_fantasy_lab.draft_ui import render_draft_center
+render_draft_center(selected_source)
