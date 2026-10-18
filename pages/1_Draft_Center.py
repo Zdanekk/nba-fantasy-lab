@@ -1,5 +1,5 @@
 
-"""Import i przeglądanie prognoz zawodników w Draft Center."""
+"""Import and browse player projections in Draft Center."""
 
 from pathlib import Path
 
@@ -9,6 +9,7 @@ import streamlit as st
 from nba_fantasy_lab.database import DEFAULT_DB_PATH, get_connection, initialize_database
 from nba_fantasy_lab.importer import SEASON, import_projections
 from nba_fantasy_lab.stat_views import PER_GAME_LABELS, convert_to_per_game
+from nba_fantasy_lab.i18n import column_label, language_selector, t
 
 DEMO_FILE = (
     Path(__file__).resolve().parent.parent
@@ -22,25 +23,17 @@ st.set_page_config(
     layout="wide",
 )
 
+language_selector()
 initialize_database()
 
 st.title("🏀 Draft Center")
-st.caption(
-    "Etap 4: import CSV, wyszukiwanie, filtrowanie "
-    "i sortowanie prognoz sezonowych."
-)
-st.warning(
-    "TW: wzór ESPN niezweryfikowany. "
-    "Brak prognozy oznacza brak danych, nie zero."
-)
+st.caption(t("page.intro"))
+st.warning(t("page.tw_warning"))
 
-with st.expander("Import prognoz CSV", expanded=True):
-    st.info(
-        "Plik przykładowy jest DEMONSTRACYJNY: fikcyjni zawodnicy "
-        "i wymyślone statystyki. Nie używaj go do rzeczywistego draftu."
-    )
+with st.expander(t("import.header"), expanded=True):
+    st.info(t("import.demo_notice"))
 
-    if st.button("Zaimportuj demo_projections.csv"):
+    if st.button(t("import.demo_button")):
         try:
             count = import_projections(
                 DEMO_FILE.read_bytes(),
@@ -48,26 +41,24 @@ with st.expander("Import prognoz CSV", expanded=True):
                 is_demo=True,
                 db_path=DEFAULT_DB_PATH,
             )
-            st.success(
-                f"Zaimportowano {count} wierszy demonstracyjnych do SQLite."
-            )
+            st.success(t("import.demo_success", count=count))
         except (ValueError, OSError) as exc:
-            st.error(f"Import nieudany: {exc}")
+            st.error(t("import.error", error=exc))
 
     upload = st.file_uploader(
-        "Albo wybierz własny plik CSV (UTF-8)",
+        t("import.upload"),
         type=["csv"],
     )
     source = st.text_input(
-        "Identyfikator źródła importu",
+        t("import.source_id"),
         value="user_csv",
     )
     demo = st.checkbox(
-        "Wgrywany plik zawiera dane demonstracyjne",
+        t("import.is_demo"),
         value=False,
     )
 
-    if st.button("Importuj przesłany plik", disabled=upload is None):
+    if st.button(t("import.upload_button"), disabled=upload is None):
         try:
             count = import_projections(
                 upload.getvalue(),
@@ -75,18 +66,11 @@ with st.expander("Import prognoz CSV", expanded=True):
                 is_demo=demo,
                 db_path=DEFAULT_DB_PATH,
             )
-            st.success(
-                f"Zapisano {count} wierszy prognoz do SQLite."
-            )
+            st.success(t("import.upload_success", count=count))
         except ValueError as exc:
             st.error(f"CSV: {exc}")
 
-    st.caption(
-        "Wymagane kolumny: full_name, nba_team, positions "
-        "(np. PG|SG). Opcjonalne: games, pts, reb, ast, "
-        "stl, blk, three_pm, fgm, fga, ftm, fta, "
-        "turnovers, team_wins."
-    )
+    st.caption(t("import.columns"))
 
 with get_connection() as connection:
     source_rows = connection.execute(
@@ -98,7 +82,7 @@ with get_connection() as connection:
     ).fetchall()
 
 if not source_rows:
-    st.info("Brak prognoz w bazie. Zaimportuj plik CSV powyżej.")
+    st.info(t("import.no_source"))
     st.stop()
 
 sources = {
@@ -106,15 +90,12 @@ sources = {
     for row in source_rows
 }
 selected_source = st.selectbox(
-    "Źródło prognoz",
+    t("import.source"),
     list(sources),
 )
 
 if sources[selected_source]:
-    st.warning(
-        "Wyświetlane są DANE DEMONSTRACYJNE — "
-        "nie prognozy rzeczywistych graczy."
-    )
+    st.warning(t("import.demo_active"))
 
 with get_connection() as connection:
     df = pd.read_sql_query(
@@ -164,9 +145,13 @@ df["FT%"] = (
 
 # Switch the table view without modifying SQLite or Z-score calculations.
 stat_view = st.radio(
-    "Widok statystyk",
+    t("stats.label"),
     ("Średnie na mecz", "Sumy sezonowe"),
     horizontal=True,
+    format_func=lambda choice: (
+        t("stats.per_game") if choice == "Średnie na mecz"
+        else t("stats.season")
+    ),
     key="projection_stat_view",
 )
 per_game = stat_view == "Średnie na mecz"
@@ -179,31 +164,32 @@ search_col, pos_col, sort_col, direction_col = st.columns(
 
 with search_col:
     search = st.text_input(
-        "Szukaj zawodnika",
-        placeholder="Wpisz nazwisko lub nazwę...",
+        t("filter.search"),
+        placeholder=t("filter.placeholder"),
     )
 
 with pos_col:
     position = st.selectbox(
-        "Pozycja",
+        t("filter.position"),
         ["Wszystkie", "PG", "SG", "SF", "PF", "C"],
+        format_func=lambda choice: (t("filter.all") if choice == "Wszystkie" else choice),
     )
 
 with sort_col:
     sort_by = st.selectbox(
-        "Sortuj według",
+        t("filter.sort"),
         [
             "Zawodnik", "PTS", "REB", "AST", "STL",
             "BLK", "3PM", "FG%", "FT%", "TO",
         ],
         format_func=lambda column: (
-            PER_GAME_LABELS.get(column, column) if per_game else column
+            column_label(PER_GAME_LABELS.get(column, column) if per_game else column)
         ),
     )
 
 with direction_col:
     ascending = st.checkbox(
-        "Rosnąco",
+        t("filter.asc"),
         value=False,
     )
 
@@ -231,7 +217,7 @@ df = df.sort_values(
     na_position="last",
 )
 
-st.metric("Zawodnicy w widoku", len(df))
+st.metric(t("filter.total"), len(df))
 
 
 # Select the columns to display in the player table.
@@ -248,7 +234,7 @@ if per_game:
 
 # Paginate results to keep large player lists responsive.
 page_size = st.selectbox(
-    "Zawodników na stronę",
+    t("table.page_size"),
     [25, 50, 100],
     index=0,
 )
@@ -259,12 +245,13 @@ total_pages = max(
 )
 
 page_number = st.selectbox(
-    "Strona tabeli",
+    t("table.page"),
     list(range(1, total_pages + 1)),
 )
 
 start = (page_number - 1) * page_size
-page_df = display_df.iloc[start:start + page_size]
+# Translate only the presentation layer; keep internal columns unchanged.
+page_df = display_df.iloc[start:start + page_size].rename(columns=column_label)
 
 # Generate HTML without requiring PyArrow.
 # All player data is HTML-escaped before rendering.
@@ -316,13 +303,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.caption(
-    ("Statystyki: średnie na mecz. " if per_game
-     else "Statystyki: sumy sezonowe. ")
-    + "Brakujące prognozy pozostają puste (—). "
-    + "Ranking Z-score nadal bazuje na sumach sezonowych. "
-    + "Live Draft znajduje się poniżej."
-)
+st.caption(t("table.note_per_game" if per_game else "table.note_season"))
 
 # Render persisted draft controls below the projections browser.
 from nba_fantasy_lab.draft_ui import render_draft_center
