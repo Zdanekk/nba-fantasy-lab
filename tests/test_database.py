@@ -1,5 +1,5 @@
 
-"""Podstawowe testy schematu i trwałości SQLite."""
+"""Basic tests for SQLite schema and data persistence."""
 
 import json
 import sqlite3

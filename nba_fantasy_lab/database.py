@@ -1,5 +1,5 @@
 
-"""Schemat SQLite, połączenia i inicjalizacja lokalnej bazy danych."""
+"""SQLite schema, connections, and database initialization."""
 
 import json
 import sqlite3
@@ -63,8 +63,8 @@ CREATE TABLE IF NOT EXISTS player_positions (
     PRIMARY KEY (player_id, position_id)
 );
 
--- Surowe liczniki do Z-score; FG% i FT% liczymy z celnych/prób.
--- NULL = brak prognozy. Nie wstawiamy fikcyjnych zer.
+-- Store raw counts; calculate shooting percentages from makes and attempts.
+-- NULL indicates missing projections, not zero values.
 CREATE TABLE IF NOT EXISTS projections (
     id INTEGER PRIMARY KEY,
     player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS draft_picks (
     UNIQUE(session_id, round_number, pick_in_round)
 );
 
--- Dziennik pozwoli zachować ślad także po cofnięciu wyboru.
+-- Preserve event history even when draft picks are undone.
 CREATE TABLE IF NOT EXISTS draft_pick_events (
     id INTEGER PRIMARY KEY,
     session_id INTEGER NOT NULL REFERENCES draft_sessions(id) ON DELETE CASCADE,
@@ -137,7 +137,7 @@ CREATE INDEX IF NOT EXISTS idx_pick_events_session ON draft_pick_events(session_
 def get_connection(
     db_path: str | Path = DEFAULT_DB_PATH,
 ) -> Iterator[sqlite3.Connection]:
-    """Otwórz połączenie; commit przy sukcesie, rollback przy błędzie."""
+    """Open a connection, commit on success, and roll back on errors."""
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path, timeout=10)
@@ -156,7 +156,7 @@ def get_connection(
 def initialize_database(
     db_path: str | Path = DEFAULT_DB_PATH,
 ) -> None:
-    """Utwórz brakujące tabele i dane startowe bez kasowania wyborów."""
+    """Initialize tables and seed data without deleting draft picks."""
     with get_connection(db_path) as connection:
         connection.executescript(SCHEMA_SQL)
         connection.executemany(

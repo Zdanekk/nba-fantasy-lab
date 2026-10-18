@@ -1,5 +1,5 @@
 
-"""Walidacja plików CSV i trwały import prognoz do SQLite."""
+"""CSV validation and persistent projection imports into SQLite."""
 
 import csv
 import io
@@ -31,7 +31,7 @@ def _number(raw: str | None, column: str, row_number: int) -> float | None:
 
 
 def parse_csv(contents: bytes) -> list[dict]:
-    """Zweryfikuj cały CSV przed jakimkolwiek zapisem do bazy."""
+    """Validate the entire CSV before writing to the database."""
     try:
         text = contents.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
@@ -126,7 +126,7 @@ def import_projections(
     is_demo: bool,
     season: str = SEASON,
 ) -> int:
-    """Zaimportuj lub zaktualizuj prognozy bez duplikatów."""
+    """Import or update projections without creating duplicates."""
     if not source.strip():
         raise ValueError("Nazwa źródła nie może być pusta.")
 

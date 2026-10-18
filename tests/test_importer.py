@@ -1,5 +1,5 @@
 
-"""Testy walidacji i trwałego importu prognoz."""
+"""Tests for CSV validation and persistent projection imports."""
 
 from pathlib import Path
 

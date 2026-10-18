@@ -1,2 +1,2 @@
 
-"""NBA Fantasy Lab — lokalna aplikacja analityczna."""
+"""NBA Fantasy Lab — local analytics application."""
