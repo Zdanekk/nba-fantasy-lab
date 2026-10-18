@@ -8,6 +8,7 @@ import streamlit as st
 
 from nba_fantasy_lab.database import DEFAULT_DB_PATH, get_connection, initialize_database
 from nba_fantasy_lab.importer import SEASON, import_projections
+from nba_fantasy_lab.stat_views import PER_GAME_LABELS, convert_to_per_game
 
 DEMO_FILE = (
     Path(__file__).resolve().parent.parent
@@ -161,6 +162,17 @@ df["FT%"] = (
     100 * df["FTM"] / df["FTA"]
 ).where(df["FTA"] > 0)
 
+# Switch the table view without modifying SQLite or Z-score calculations.
+stat_view = st.radio(
+    "Widok statystyk",
+    ("Średnie na mecz", "Sumy sezonowe"),
+    horizontal=True,
+    key="projection_stat_view",
+)
+per_game = stat_view == "Średnie na mecz"
+if per_game:
+    df = convert_to_per_game(df)
+
 search_col, pos_col, sort_col, direction_col = st.columns(
     [3, 2, 2, 1]
 )
@@ -184,6 +196,9 @@ with sort_col:
             "Zawodnik", "PTS", "REB", "AST", "STL",
             "BLK", "3PM", "FG%", "FT%", "TO",
         ],
+        format_func=lambda column: (
+            PER_GAME_LABELS.get(column, column) if per_game else column
+        ),
     )
 
 with direction_col:
@@ -227,6 +242,9 @@ display_columns = [
 ]
 
 display_df = df[display_columns].copy()
+if per_game:
+    display_df = display_df.rename(columns=PER_GAME_LABELS)
+    display_df = display_df.round(2)
 
 # Paginate results to keep large player lists responsive.
 page_size = st.selectbox(
@@ -299,9 +317,11 @@ st.markdown(
 )
 
 st.caption(
-    "Statystyki są sumami sezonowymi. "
-    "Puste komórki = brak prognozy. "
-    "Wybory zawodników i snake draft dodamy w Etapie 5."
+    ("Statystyki: średnie na mecz. " if per_game
+     else "Statystyki: sumy sezonowe. ")
+    + "Brakujące prognozy pozostają puste (—). "
+    + "Ranking Z-score nadal bazuje na sumach sezonowych. "
+    + "Live Draft znajduje się poniżej."
 )
 
 # Render persisted draft controls below the projections browser.
